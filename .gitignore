@@ -1,0 +1,26 @@
+# Sensitive files
+.streamlit/secrets.toml
+
+# Virtual environment
+venv/
+.env/
+*.env
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Logs
+*.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Streamlit cache
+.streamlit/
+
+# IDE/editor files
+.vscode/
+.idea/
