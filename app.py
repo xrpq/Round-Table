@@ -1,11 +1,16 @@
 import os
 import streamlit as st
 import json
-import openai
-from openai.error import OpenAIError
+from openai import OpenAI, OpenAIError
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Set your OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(
+    api_key = os.environ.get("OPENAI_API_KEY"),
+)
 
 # Load philosopher prompts from JSON file
 with open("philosophers.json", "r") as file:
@@ -32,6 +37,7 @@ if st.session_state["scenario"] is None:
     scenario = st.selectbox(
         "Choose an ethical dilemma:",
         [
+            "How should we treat the advanced of AI systems?",
             "Should self-driving cars prioritize passengers or pedestrians?",
             "Is predictive policing ever ethical?",
             "Should social media platforms moderate harmful content?",
@@ -53,12 +59,8 @@ else:
 # Display the conversation log
 st.header("Round Table Discussion")
 for message in st.session_state["messages"]:
-    if message["role"] == "user":
-        st.markdown(f"**You:** {message['content']}")
-    elif message["role"] == "system":
-        st.markdown(f"**System:** {message['content']}")
-    else:
-        st.markdown(f"**{message['role']}:** {message['content']}")
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
 
 # User Input Section
 user_input = st.text_input("Your input:")
@@ -76,21 +78,22 @@ if st.button("Submit") and user_input:
                 ] + st.session_state["messages"]
 
                 # OpenAI API Call
-                response = openai.ChatCompletion.create(
-                    model="gpt-4",
+                response = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
                     messages=conversation_history,
                     max_tokens=150,
                     temperature=0.7
                 )
 
                 # Add philosopher's response to the conversation
+                response_content = response.choices[0].message.content
                 st.session_state["messages"].append({
-                    "role": philosopher["name"],
-                    "content": response.choices[0].message.content
+                    "role": "assistant",
+                    "content": f"{philosopher['name']} says: {response_content}"
                 })
 
             except OpenAIError as e:
-                st.error(f"Error from {philosopher['name']}: {e}")
+                print(f"Error: {e}")
 
 # Limit total messages to control conversation length and cost
 if len(st.session_state["messages"]) >= 15:
@@ -101,4 +104,4 @@ if len(st.session_state["messages"]) >= 15:
 if st.button("Start New Discussion"):
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.experimental_rerun()
+    st.rerun()
