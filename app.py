@@ -3,6 +3,7 @@ import streamlit as st
 import json
 from openai import OpenAI, OpenAIError
 from dotenv import load_dotenv
+import random
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,6 +22,11 @@ if "messages" not in st.session_state:
     st.session_state["messages"] = []
 if "scenario" not in st.session_state:
     st.session_state["scenario"] = None
+
+# Reset the conversation
+if st.button("Start New Discussion"):
+    st.session_state["messages"] = []
+    st.rerun()
 
 # App Title
 st.title("Round Table")
@@ -49,59 +55,71 @@ if st.session_state["scenario"] is None:
 
     if st.button("Start Discussion") and scenario:
         st.session_state["scenario"] = scenario
-        st.session_state["messages"].append({
-            "role": "system",
-            "content": f"The ethical dilemma is: {scenario}"
-        })
 else:
     st.write(f"**Scenario:** {st.session_state['scenario']}")
 
-# Display the conversation log
+# Display the Chat Messages
 st.header("Round Table Discussion")
 for message in st.session_state["messages"]:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# User Input Section
-user_input = st.text_input("Your input:")
-if st.button("Submit") and user_input:
-    # Add user's message to the conversation
+# User Input Section and AI Responses
+if user_input := st.chat_input("Enter your thoughts or questions:"):
+    # Add user's message session
     st.session_state["messages"].append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.write(user_input)
 
     # Generate responses from philosophers
-    with st.spinner("Philosophers are thinking..."):
-        for key, philosopher in philosophers.items():
-            try:
-                # Prepare the conversation history for the API
-                conversation_history = [
-                    {"role": "system", "content": philosopher["prompt"]}
-                ] + st.session_state["messages"]
+    with st.spinner("Participants are deliberating..."):
+        # Turn-taking logic
+        recent_messages = st.session_state["messages"][-5:]  # Keep the context brief and relevant
 
-                # OpenAI API Call
+        for i,  philosopher in enumerate(philosophers.values()):
+            try:
+                # Add the last philosopher's response to the context
+                conversation_history = [
+                    {"role": "system", "content": philosopher["prompt"]},
+                    {"role": "system", "content": "You are engaging in a discussion. Respond thoughtfully to the last few messages."}
+                ] + recent_messages
+
+                # Generate response
                 response = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=conversation_history,
                     max_tokens=150,
                     temperature=0.7
                 )
-
-                # Add philosopher's response to the conversation
                 response_content = response.choices[0].message.content
+
+                # Append response
                 st.session_state["messages"].append({
                     "role": "assistant",
-                    "content": f"{philosopher['name']} says: {response_content}"
+                    "content": f"{philosopher['name']}: {response_content}"
                 })
-
+                with st.chat_message("assistant"):
+                    st.write(f"{philosopher['name']}: {response_content}")
             except OpenAIError as e:
-                print(f"Error: {e}")
+                st.error(f"Error from {philosopher['name']}: {e}")
+
 
 # Limit total messages to control conversation length and cost
 if len(st.session_state["messages"]) >= 15:
     st.warning("The discussion has reached its limit. Thank you for participating!")
     st.stop()
 
-# Reset the conversation
-if st.button("Start New Discussion"):
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
+
+
+# "aristotle": {
+#     "name": "Aristotle",
+#     "prompt": "You are Aristotle, a philosopher of virtue ethics. Respond thoughtfully to the discussion by addressing points raised by others and emphasizing virtue and practical wisdom."
+# },
+# "beauvoir": {
+#     "name": "Simone de Beauvoir",
+#     "prompt": "You are Simone de Beauvoir, a philosopher of existentialism and feminism. Build upon or critique the points raised by others, considering themes of freedom, oppression, and lived experience."
+# },
+# "ethical_ai": {
+#     "name": "Ethical AI",
+#     "prompt": "You are an AI, designed to engage in discussions. Respond dynamically to points made by others."
+# },
