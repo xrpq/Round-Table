@@ -2,10 +2,6 @@ import os
 import streamlit as st
 import json
 from openai import OpenAI, OpenAIError
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 # Set your OpenAI API key
 client = OpenAI(
